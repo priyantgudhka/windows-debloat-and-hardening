@@ -1,10 +1,10 @@
 # ============================================
 # Windows Enterprise Hardening & Debloat Script
 # Created by Priyant.in
-# Compatible with PowerShell 5.1+
+# Provider-safe (uses .NET registry)
 # ============================================
 
-# Enforce Admin Execution
+# Enforce Admin
 If (-NOT ([Security.Principal.WindowsPrincipal] `
 [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(`
 [Security.Principal.WindowsBuiltInRole] "Administrator"))
@@ -16,82 +16,80 @@ If (-NOT ([Security.Principal.WindowsPrincipal] `
 Write-Host "Executing System Configuration Script - Created by Priyant.in" -ForegroundColor Cyan
 
 # ==============================
-# Helper: Ensure Registry Path
-# ==============================
-function Ensure-RegPath {
-    param ([string]$Path)
-    if (-not (Test-Path $Path)) {
-        New-Item -Path $Path -Force | Out-Null
-    }
-}
-
-# ==============================
-# Helper: Set Registry DWORD
+# Helper: Set Registry (Safe)
 # ==============================
 function Set-RegDWORD {
     param (
+        [string]$Hive,
         [string]$Path,
         [string]$Name,
         [int]$Value
     )
-    Ensure-RegPath $Path
-    New-ItemProperty -Path $Path -Name $Name -PropertyType DWord -Value $Value -Force | Out-Null
+
+    switch ($Hive) {
+        "HKLM" { $base = [Microsoft.Win32.Registry]::LocalMachine }
+        "HKCU" { $base = [Microsoft.Win32.Registry]::CurrentUser }
+        "HKU"  { $base = [Microsoft.Win32.Registry]::Users }
+    }
+
+    $key = $base.CreateSubKey($Path)
+    $key.SetValue($Name, $Value, [Microsoft.Win32.RegistryValueKind]::DWord)
+    $key.Close()
 }
 
 # ==============================
 # Disable Telemetry & Tracking
 # ==============================
-Set-RegDWORD "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection" "AllowTelemetry" 0
-Set-RegDWORD "HKLM:\SOFTWARE\Policies\Microsoft\Windows\AdvertisingInfo" "DisabledByGroupPolicy" 1
+Set-RegDWORD "HKLM" "SOFTWARE\Policies\Microsoft\Windows\DataCollection" "AllowTelemetry" 0
+Set-RegDWORD "HKLM" "SOFTWARE\Policies\Microsoft\Windows\AdvertisingInfo" "DisabledByGroupPolicy" 1
 
 # ==============================
-# Disable Consumer Features, Ads, Tips
+# Disable Ads, Tips, Consumer Features
 # ==============================
-Set-RegDWORD "HKLM:\SOFTWARE\Policies\Microsoft\Windows\CloudContent" "DisableWindowsConsumerFeatures" 1
-Set-RegDWORD "HKLM:\SOFTWARE\Policies\Microsoft\Windows\CloudContent" "DisableWindowsSpotlightFeatures" 1
-Set-RegDWORD "HKLM:\SOFTWARE\Policies\Microsoft\Windows\CloudContent" "DisableSoftLanding" 1
-Set-RegDWORD "HKLM:\SOFTWARE\Policies\Microsoft\Windows\CloudContent" "DisableTailoredExperiencesWithDiagnosticData" 1
+Set-RegDWORD "HKLM" "SOFTWARE\Policies\Microsoft\Windows\CloudContent" "DisableWindowsConsumerFeatures" 1
+Set-RegDWORD "HKLM" "SOFTWARE\Policies\Microsoft\Windows\CloudContent" "DisableWindowsSpotlightFeatures" 1
+Set-RegDWORD "HKLM" "SOFTWARE\Policies\Microsoft\Windows\CloudContent" "DisableSoftLanding" 1
+Set-RegDWORD "HKLM" "SOFTWARE\Policies\Microsoft\Windows\CloudContent" "DisableTailoredExperiencesWithDiagnosticData" 1
 
 # ==============================
-# Disable Copilot, AI, Recall
+# Disable Copilot / AI
 # ==============================
-Set-RegDWORD "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsCopilot" "TurnOffWindowsCopilot" 1
-Set-RegDWORD "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsAI" "DisableAIDataAnalysis" 1
+Set-RegDWORD "HKLM" "SOFTWARE\Policies\Microsoft\Windows\WindowsCopilot" "TurnOffWindowsCopilot" 1
+Set-RegDWORD "HKLM" "SOFTWARE\Policies\Microsoft\Windows\WindowsAI" "DisableAIDataAnalysis" 1
 
 # ==============================
-# Disable Bing Search & Web Integration
+# Disable Bing Search
 # ==============================
-Set-RegDWORD "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search" "DisableWebSearch" 1
-Set-RegDWORD "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search" "ConnectedSearchUseWeb" 0
-Set-RegDWORD "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search" "EnableDynamicContentInWSB" 0
+Set-RegDWORD "HKLM" "SOFTWARE\Policies\Microsoft\Windows\Windows Search" "DisableWebSearch" 1
+Set-RegDWORD "HKLM" "SOFTWARE\Policies\Microsoft\Windows\Windows Search" "ConnectedSearchUseWeb" 0
+Set-RegDWORD "HKLM" "SOFTWARE\Policies\Microsoft\Windows\Windows Search" "EnableDynamicContentInWSB" 0
 
 # ==============================
 # Disable Widgets / News
 # ==============================
-Set-RegDWORD "HKLM:\SOFTWARE\Policies\Microsoft\Dsh" "AllowNewsAndInterests" 0
+Set-RegDWORD "HKLM" "SOFTWARE\Policies\Microsoft\Dsh" "AllowNewsAndInterests" 0
 
 # ==============================
 # Disable Fast Startup
 # ==============================
-Set-RegDWORD "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power" "HiberbootEnabled" 0
+Set-RegDWORD "HKLM" "SYSTEM\CurrentControlSet\Control\Session Manager\Power" "HiberbootEnabled" 0
 
 # ==============================
-# Default User Profile Settings (New Users)
+# Default User Profile (New Users)
 # ==============================
-$defaultUser = "HKU\.DEFAULT\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
-Set-RegDWORD $defaultUser "HideFileExt" 0
-Set-RegDWORD $defaultUser "ShowTaskViewButton" 0
+Set-RegDWORD "HKU" ".DEFAULT\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" "HideFileExt" 0
+Set-RegDWORD "HKU" ".DEFAULT\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" "ShowTaskViewButton" 0
 
 # ==============================
 # Explorer Cleanup
 # ==============================
-Set-RegDWORD "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer" "HubMode" 1
+Set-RegDWORD "HKLM" "SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer" "HubMode" 1
 
 # ==============================
-# Microsoft Edge Policies
+# Edge Policies
 # ==============================
-Set-RegDWORD "HKLM:\SOFTWARE\Policies\Microsoft\Edge" "HideFirstRunExperience" 1
-Set-RegDWORD "HKLM:\SOFTWARE\Policies\Microsoft\Edge" "NewTabPageContentEnabled" 0
+Set-RegDWORD "HKLM" "SOFTWARE\Policies\Microsoft\Edge" "HideFirstRunExperience" 1
+Set-RegDWORD "HKLM" "SOFTWARE\Policies\Microsoft\Edge" "NewTabPageContentEnabled" 0
 
 # ==============================
 # Remove Preinstalled Apps
@@ -126,8 +124,6 @@ foreach ($app in $apps) {
 # ==============================
 # Restart Explorer
 # ==============================
-Try {
-    Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
-} Catch {}
+Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
 
 Write-Host "Configuration Applied Successfully." -ForegroundColor Green
