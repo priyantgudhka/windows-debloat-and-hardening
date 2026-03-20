@@ -1,6 +1,7 @@
 # ============================================
 # Windows Enterprise Hardening & Debloat Script
 # Created by Priyant.in
+# Compatible with PowerShell 5.1+
 # ============================================
 
 # Enforce Admin Execution
@@ -25,90 +26,75 @@ function Ensure-RegPath {
 }
 
 # ==============================
-# Disable Telemetry & Data Collection
+# Helper: Set Registry DWORD
 # ==============================
-$path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection"
-Ensure-RegPath $path
-Set-ItemProperty -Path $path -Name "AllowTelemetry" -Type DWord -Value 0
-
-$path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\AdvertisingInfo"
-Ensure-RegPath $path
-Set-ItemProperty -Path $path -Name "DisabledByGroupPolicy" -Type DWord -Value 1
-
-$path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\CloudContent"
-Ensure-RegPath $path
-Set-ItemProperty -Path $path -Name "DisableWindowsConsumerFeatures" -Type DWord -Value 1
-Set-ItemProperty -Path $path -Name "DisableWindowsSpotlightFeatures" -Type DWord -Value 1
+function Set-RegDWORD {
+    param (
+        [string]$Path,
+        [string]$Name,
+        [int]$Value
+    )
+    Ensure-RegPath $Path
+    New-ItemProperty -Path $Path -Name $Name -PropertyType DWord -Value $Value -Force | Out-Null
+}
 
 # ==============================
-# Disable Tips, Suggestions, Ads
+# Disable Telemetry & Tracking
 # ==============================
-$path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\CloudContent"
-Ensure-RegPath $path
-Set-ItemProperty -Path $path -Name "DisableSoftLanding" -Type DWord -Value 1
-Set-ItemProperty -Path $path -Name "DisableTailoredExperiencesWithDiagnosticData" -Type DWord -Value 1
+Set-RegDWORD "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection" "AllowTelemetry" 0
+Set-RegDWORD "HKLM:\SOFTWARE\Policies\Microsoft\Windows\AdvertisingInfo" "DisabledByGroupPolicy" 1
+
+# ==============================
+# Disable Consumer Features, Ads, Tips
+# ==============================
+Set-RegDWORD "HKLM:\SOFTWARE\Policies\Microsoft\Windows\CloudContent" "DisableWindowsConsumerFeatures" 1
+Set-RegDWORD "HKLM:\SOFTWARE\Policies\Microsoft\Windows\CloudContent" "DisableWindowsSpotlightFeatures" 1
+Set-RegDWORD "HKLM:\SOFTWARE\Policies\Microsoft\Windows\CloudContent" "DisableSoftLanding" 1
+Set-RegDWORD "HKLM:\SOFTWARE\Policies\Microsoft\Windows\CloudContent" "DisableTailoredExperiencesWithDiagnosticData" 1
 
 # ==============================
 # Disable Copilot, AI, Recall
 # ==============================
-$path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsCopilot"
-Ensure-RegPath $path
-Set-ItemProperty -Path $path -Name "TurnOffWindowsCopilot" -Type DWord -Value 1
-
-$path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsAI"
-Ensure-RegPath $path
-Set-ItemProperty -Path $path -Name "DisableAIDataAnalysis" -Type DWord -Value 1
+Set-RegDWORD "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsCopilot" "TurnOffWindowsCopilot" 1
+Set-RegDWORD "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsAI" "DisableAIDataAnalysis" 1
 
 # ==============================
-# Disable Bing + Web Search
+# Disable Bing Search & Web Integration
 # ==============================
-$path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search"
-Ensure-RegPath $path
-Set-ItemProperty -Path $path -Name "DisableWebSearch" -Type DWord -Value 1
-Set-ItemProperty -Path $path -Name "ConnectedSearchUseWeb" -Type DWord -Value 0
+Set-RegDWORD "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search" "DisableWebSearch" 1
+Set-RegDWORD "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search" "ConnectedSearchUseWeb" 0
+Set-RegDWORD "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search" "EnableDynamicContentInWSB" 0
 
 # ==============================
-# Taskbar / UX Cleanup (System Policies)
+# Disable Widgets / News
 # ==============================
-$path = "HKLM:\SOFTWARE\Policies\Microsoft\Dsh"
-Ensure-RegPath $path
-Set-ItemProperty -Path $path -Name "AllowNewsAndInterests" -Type DWord -Value 0
-
-$path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search"
-Ensure-RegPath $path
-Set-ItemProperty -Path $path -Name "EnableDynamicContentInWSB" -Type DWord -Value 0
+Set-RegDWORD "HKLM:\SOFTWARE\Policies\Microsoft\Dsh" "AllowNewsAndInterests" 0
 
 # ==============================
 # Disable Fast Startup
 # ==============================
-Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power" `
--Name "HiberbootEnabled" -Type DWord -Value 0
+Set-RegDWORD "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power" "HiberbootEnabled" 0
 
 # ==============================
-# Default User Profile (applies to new users)
+# Default User Profile Settings (New Users)
 # ==============================
 $defaultUser = "HKU\.DEFAULT\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
-Ensure-RegPath $defaultUser
-Set-ItemProperty -Path $defaultUser -Name "HideFileExt" -Type DWord -Value 0
-Set-ItemProperty -Path $defaultUser -Name "ShowTaskViewButton" -Type DWord -Value 0
+Set-RegDWORD $defaultUser "HideFileExt" 0
+Set-RegDWORD $defaultUser "ShowTaskViewButton" 0
 
 # ==============================
 # Explorer Cleanup
 # ==============================
-$path = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer"
-Ensure-RegPath $path
-Set-ItemProperty -Path $path -Name "HubMode" -Type DWord -Value 1
+Set-RegDWORD "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer" "HubMode" 1
 
 # ==============================
 # Microsoft Edge Policies
 # ==============================
-$path = "HKLM:\SOFTWARE\Policies\Microsoft\Edge"
-Ensure-RegPath $path
-Set-ItemProperty -Path $path -Name "HideFirstRunExperience" -Type DWord -Value 1
-Set-ItemProperty -Path $path -Name "NewTabPageContentEnabled" -Type DWord -Value 0
+Set-RegDWORD "HKLM:\SOFTWARE\Policies\Microsoft\Edge" "HideFirstRunExperience" 1
+Set-RegDWORD "HKLM:\SOFTWARE\Policies\Microsoft\Edge" "NewTabPageContentEnabled" 0
 
 # ==============================
-# Remove Preinstalled Apps (All Users + Provisioned)
+# Remove Preinstalled Apps
 # ==============================
 $apps = @(
     "*Spotify*",
@@ -138,7 +124,7 @@ foreach ($app in $apps) {
 }
 
 # ==============================
-# Restart Explorer (non-critical)
+# Restart Explorer
 # ==============================
 Try {
     Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
