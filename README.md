@@ -70,4 +70,4 @@ powershell -ExecutionPolicy Bypass -File .\debloat.ps1
   - Version-controlled script URLs
 
 ## Author
-### Priyant.in
+### <a href="https://priyant.in" target="_blank">Priyant.in</a>
